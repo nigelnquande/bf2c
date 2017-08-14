@@ -1,11 +1,10 @@
 /*
  * bf2c.c
  * 
- * Copyright 2017 Simon Naude <snaude@nortech.co.za>
+ * Copyright 2017 Nigel Nquande <nigelnquande@yahoo.com>
  * 
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the Genral DWTFYW public license.
- * 
+ * it under the terms of the MIT license.
  */
 
 
@@ -14,9 +13,10 @@
 // #include <sys/unistd.h>
 #include <string.h>
 
-#define CODE_LENGTH 2048
-#define DEBUG 0
+#define CODE_LENGTH 2048  // Max number of characters from input string
+#define DEBUG 0  /* Change this to 1 to see debug output */
 
+/* Copy chars from src to dest, returning the number of chars copied */
 static size_t str_copy(const char *src, char *dst) {
 	size_t i = 0;
 	while (src[i] != '\0') {
@@ -25,6 +25,8 @@ static size_t str_copy(const char *src, char *dst) {
 	}
 	return i;
 }
+
+/* Translate a BF character instruction (token) to the C equivalent */
 static const char * codeGen(char token) {
 	switch (token) {
 		case '+': return "\to[i]++;\n";
@@ -39,6 +41,7 @@ static const char * codeGen(char token) {
 	}
 }
 
+/* Given BF input, print C output */
 void parseBrainfuck(char * input, size_t length) {
 	printf("\n/* BF Source:\n%s\n*/", input);
 	int translated_length = length * 10;
@@ -63,7 +66,7 @@ void parseBrainfuck(char * input, size_t length) {
 int main(int argc, char **argv) {
 	if (argc < 3 || argv[1][0] != '-') {
 		fprintf(stderr, "No Brainfuck input!\n");
-		fprintf(stderr, "Usage:\t%s [-e|-i] brainfuck_input\n", argv[0]);
+		fprintf(stderr, "Usage:\t%s [-e|-i] brainfuck_input\n-e\tevaluate input string\n-i\tevaluate input file\n", argv[0]);
 		return EXIT_FAILURE;
 	} else if (argv[1][1] == 'e') {
 		char instream[CODE_LENGTH];
