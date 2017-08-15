@@ -13,12 +13,16 @@
 // #include <sys/unistd.h>
 #include <string.h>
 
-#define CODE_LENGTH 2048  // Max number of characters from input string
-#define DEBUG 0  /* Change this to 1 to see debug output */
+#define DEBUG 1  /* Change this to 1 to see debug output */
+/* number of characters to reserve per instruction. 
+ * was 10; increased as the reserved array was too short and caused a segmentation fault. 
+ * Increase this if you encounter segfaults. 
+ */
+#define TRANSLATION_EXPANDER 15 
 
 /* Copy chars from src to dest, returning the number of chars copied */
-static size_t str_copy(const char *src, char *dst) {
-	size_t i = 0;
+static unsigned int str_copy(const char *src, char *dst) {
+	unsigned int i = 0;
 	while (src[i] != '\0') {
 		dst[i] = src[i];
 		i++;
@@ -42,25 +46,39 @@ static const char * codeGen(char token) {
 }
 
 /* Given BF input, print C output */
-void parseBrainfuck(char * input, size_t length) {
-	printf("\n/* BF Source:\n%s\n*/", input);
-	int translated_length = length * 10;
-	char translated[translated_length];
-	char inChar;
-	size_t input_ind = 0, translated_ind = 0;
-	if (DEBUG) printf("/*Parsing BF source code of length %lu:\n%s*/\n", length, input);
+void parseBrainfuck(char * input, unsigned long inputLength) {
+  printf("\n/* BF Source:\n%s\n*/", input);
+  unsigned long translated_length = inputLength * TRANSLATION_EXPANDER;
+  char translated[translated_length];
+  char inChar;
+  unsigned long input_ind = 0, translated_ind = 0;
+  if (DEBUG) printf("/*Parsing BF source code of length %lu bytes (%lu bytes reserved):\n%s*/\n", inputLength, translated_length, input);
 	translated_ind += str_copy(
 		"\n#include <stdio.h>\n#include <stdlib.h>\n\nint main (void) {\n\tchar o[30000];\n\tint i; for (i = 0; i < 30000; i++) o[i] = 0;\n\ti = 0;\n", 
 		translated + translated_ind
 	);
-	for (input_ind = 0; input_ind < length; input_ind++) {
+	for (input_ind = 0; input_ind < inputLength; input_ind++) {
 		inChar = input[input_ind];
 		if (inChar == '\0') continue;
-		if (DEBUG) printf("In Char: %c\n", inChar);
+		if (DEBUG) printf("In Char: %c\t", inChar);
 		translated_ind += str_copy(codeGen(inChar), translated + translated_ind);
+		if (DEBUG) printf("Translation Index:\t%03lu\n", translated_ind);
 	}
-	translated_ind += str_copy("\n}\n", translated + translated_ind);
+	translated_ind += str_copy("\n\treturn 0;\n}\n", translated + translated_ind);
 	printf("%s", translated);
+}
+
+unsigned long str_len(char * in) {
+  unsigned long len = 0;
+  while (in[len] != '\0') { 
+    len++;
+    asm("nop"); // requires `-funroll-all-loops` passed to GCC
+  }
+  len++;
+  
+  if (DEBUG) printf("String length: %lu\n", len);
+  
+  return len;
 }
 
 int main(int argc, char **argv) {
@@ -69,15 +87,15 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Usage:\t%s [-e|-i] brainfuck_input\n-e\tevaluate input string\n-i\tevaluate input file\n", argv[0]);
 		return EXIT_FAILURE;
 	} else if (argv[1][1] == 'e') {
-		char instream[CODE_LENGTH];
+		char instream[str_len(argv[2])];
 		strcpy(instream, argv[2]);
 		if (DEBUG) printf("/* Received Input:\t%s */\n", instream);
 		// pass the contents of instream to parseBrainfuck();
-		parseBrainfuck(instream, CODE_LENGTH);
+		parseBrainfuck(instream, str_len(argv[2]));
 	} else if (argv[1][1] == 'i') {
 		// open the specified file and copy its contents into instream
 		char * buffer = 0;
-		long length = 0;
+		unsigned long length = 0;
 		size_t bytes_read = 0;
 		if (DEBUG) printf("/* File to read: %s */\n", argv[2]);
 		FILE * f = fopen(argv[2], "rb");
@@ -100,4 +118,3 @@ int main(int argc, char **argv) {
 	
 	return EXIT_SUCCESS;
 }
-
