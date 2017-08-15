@@ -37,7 +37,7 @@ static const char * codeGen(char token) {
 		case '-': return "\to[i]--;\n";
 		case '>': return  "\ti++;\n";
 		case '<': return "\ti--;\n";
-		case '.': return "\tprintf (\"%c\", o[i]);\n";
+		case '.': return "\tputchar (o[i]);\n";
 		case ',': return "\to[i] = getchar();\n";
 		case '[': return "\n\twhile (o[i] > 0) {\n\t";
 		case ']': return "\n\t}\n\n";
