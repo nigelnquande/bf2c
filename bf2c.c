@@ -13,12 +13,14 @@
 // #include <sys/unistd.h>
 #include <string.h>
 
-#define DEBUG 1  /* Change this to 1 to see debug output */
+#define DEBUG 0  /* Change this to 1 to see debug output */
 /* number of characters to reserve per instruction. 
  * was 10; increased as the reserved array was too short and caused a segmentation fault. 
  * Increase this if you encounter segfaults. 
  */
-#define TRANSLATION_EXPANDER 15 
+#define TRANSLATION_EXPANDER 20 
+
+size_t loopIndent = 0;
 
 /* Copy chars from src to dest, returning the number of chars copied */
 static unsigned int str_copy(const char *src, char *dst) {
@@ -37,10 +39,10 @@ static const char * codeGen(char token) {
 		case '-': return "\to[i]--;\n";
 		case '>': return  "\ti++;\n";
 		case '<': return "\ti--;\n";
-		case '.': return "\tprintf (\"%c\", o[i]);\n";
+		case '.': return "\tputchar (o[i]);\n";
 		case ',': return "\to[i] = getchar();\n";
-		case '[': return "\n\twhile (o[i] > 0) {\n\t";
-		case ']': return "\n\t}\n\n";
+		case '[': ++loopIndent; return "\twhile (o[i] > 0) {\n";
+		case ']': --loopIndent; return "}\n\n";
 		default:  return "";
 	}
 }
@@ -50,17 +52,36 @@ void parseBrainfuck(char * input, unsigned long inputLength) {
   printf("\n/* BF Source:\n%s\n*/", input);
   unsigned long translated_length = inputLength * TRANSLATION_EXPANDER;
   char translated[translated_length];
-  char inChar;
+  char inChar, nextChar;
   unsigned long input_ind = 0, translated_ind = 0;
-  if (DEBUG) printf("/*Parsing BF source code of length %lu bytes (%lu bytes reserved):\n%s*/\n", inputLength, translated_length, input);
+  if (DEBUG) 
+    printf("/*Parsing BF source code of length %lu bytes (%lu bytes reserved):\n%s*/\n", inputLength, translated_length, input);
 	translated_ind += str_copy(
 		"\n#include <stdio.h>\n#include <stdlib.h>\n\nint main (void) {\n\tchar o[30000];\n\tint i; for (i = 0; i < 30000; i++) o[i] = 0;\n\ti = 0;\n", 
 		translated + translated_ind
 	);
 	for (input_ind = 0; input_ind < inputLength; input_ind++) {
 		inChar = input[input_ind];
+		if (input_ind + 1 < inputLength) {
+		  nextChar = input[input_ind +1];
+		  // Ignore empty loops and increments immediately followed by decrements
+		  if ((inChar == '[' && nextChar == ']') || (inChar == '+' && nextChar == '-') || 
+		    (inChar == '-' && nextChar == '+') || (inChar == '<' && nextChar == '>') || (inChar == '>' && nextChar == '<')
+		  ) { 
+		    input_ind += 1; continue; // jump this and the next character instruction as they achieve nothing.
+		    
+		  }
+		}
 		if (inChar == '\0') continue;
 		if (DEBUG) printf("In Char: %c\t", inChar);
+		if (loopIndent > 0) { // properly indent code within a loop
+		  char * tabs;
+		  tabs =  (char *) malloc(loopIndent);
+		  size_t j = 0;
+		  for (j = 0; j < loopIndent; j++) tabs[j] = 9; // \t
+		  translated_ind += str_copy(tabs, translated + translated_ind);
+		  free(tabs);
+		}
 		translated_ind += str_copy(codeGen(inChar), translated + translated_ind);
 		if (DEBUG) printf("Translation Index:\t%03lu\n", translated_ind);
 	}
